@@ -48,9 +48,9 @@ def main():
     salt = b"somesalt"
     key = derive_key(password, salt)
 
-    # Prompt user for server IP address or hostname
-    server_address = input("Enter server IP address or hostname: ")
-    server_port = 10000  # Set the port number
+    # Specify the server's IP address and port number
+    server_address = "192.168.1.100"  # Replace with the server's actual IP address
+    server_port = 12345  # Replace with the port number
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
