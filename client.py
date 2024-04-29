@@ -1,74 +1,37 @@
-# client.py
-
 import socket
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-import os
 
-def derive_key(password, salt):
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100000,
-        backend=default_backend()
-    )
-    return kdf.derive(password)
+# Define the server's IP and port
+SERVER_IP = "127.0.0.1"  # Replace with the actual IP address
+SERVER_PORT = 12345
 
-def encrypt_message(key, message):
-    iv = os.urandom(16)  # Initialization Vector
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-    encryptor = cipher.encryptor()
-    padder = padding.PKCS7(128).padder()
-    padded_data = padder.update(message) + padder.finalize()
-    ciphertext = encryptor.update(padded_data) + encryptor.finalize()
-    return iv + ciphertext
+# Create a socket object
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def decrypt_message(key, ciphertext):
-    iv = ciphertext[:16]
-    ciphertext = ciphertext[16:]
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-    decryptor = cipher.decryptor()
-    padded_data = decryptor.update(ciphertext) + decryptor.finalize()
-    unpadder = padding.PKCS7(128).unpadder()
-    message = unpadder.update(padded_data) + unpadder.finalize()
-    return message
+# Connect to the server
+client_socket.connect((SERVER_IP, SERVER_PORT))
 
-def send_message(sock, message):
-    sock.sendall(message)
+while True:
+    # Get user input
+    message = input("Enter a message to send to the server (type 'exit' to quit): ")
 
-def receive_message(sock, buffer_size=1024):
-    return sock.recv(buffer_size)
+    if message.lower() == "exit":
+        break  # Exit the loop if user types 'exit'
 
-def main():
-    password = b"supersecret"
-    salt = b"somesalt"
-    key = derive_key(password, salt)
+    # Send the message to the server
+    client_socket.send(message.encode())
 
-    # Specify the server's IP address and port number
-    server_address = "192.168.1.100"  # Replace with the server's actual IP address
-    server_port = 12345  # Replace with the port number
+    # Receive the server's response
+    response = client_socket.recv(1024).decode()
+    print("Received from server:", response)
 
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Get user input for sending a message back to the server
+    message = input("Enter a message to send to the server (type 'exit' to quit): ")
 
-    try:
-        # Connect to the server
-        client_socket.connect((server_address, server_port))
+    if message.lower() == "exit":
+        break  # Exit the loop if user types 'exit'
 
-        while True:
-            plaintext = input("Enter message: ")
-            encrypted_message = encrypt_message(key, plaintext.encode())
-            send_message(client_socket, encrypted_message)
+    # Send the message to the server
+    client_socket.send(message.encode())
 
-            ciphertext = receive_message(client_socket)
-            decrypted_message = decrypt_message(key, ciphertext)
-            print("Received:", decrypted_message.decode())
-
-    finally:
-        client_socket.close()
-
-if __name__ == "__main__":
-    main()
+# Close the connection
+client_socket.close()

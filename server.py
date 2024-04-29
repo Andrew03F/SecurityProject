@@ -1,66 +1,36 @@
-# server.py
-
 import socket
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-import os
 
-def derive_key(password, salt):
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100000,
-        backend=default_backend()
-    )
-    return kdf.derive(password)
+# Define the server's IP and port
+SERVER_IP = "127.0.0.1"  # Replace with the actual IP address
+SERVER_PORT = 12345
 
-def decrypt_message(key, ciphertext):
-    iv = ciphertext[:16]
-    ciphertext = ciphertext[16:]
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
-    decryptor = cipher.decryptor()
-    padded_data = decryptor.update(ciphertext) + decryptor.finalize()
-    unpadder = padding.PKCS7(128).unpadder()
-    message = unpadder.update(padded_data) + unpadder.finalize()
-    return message
+# Create a socket object
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def receive_message(connection, buffer_size=1024):
-    return connection.recv(buffer_size)
+# Bind the socket to the address and port
+server_socket.bind((SERVER_IP, SERVER_PORT))
 
-def send_message(connection, message):
-    connection.sendall(message)
+# Listen for incoming connections
+server_socket.listen(1)
 
-def main():
-    password = b"supersecret"
-    salt = b"somesalt"
-    key = derive_key(password, salt)
+print("Server is listening for incoming connections...")
 
-    # Listen on all network interfaces
-    server_address = ('', 12345)
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(server_address)
-    server_socket.listen(1)
+# Accept a client connection
+client_socket, client_address = server_socket.accept()
+print("Connection established with:", client_address)
 
-    print("Waiting for connection...")
-    connection, client_address = server_socket.accept()
-    print("Connection established with:", client_address)
+while True:
+    # Receive data from the client
+    data = client_socket.recv(1024).decode()
+    if not data:
+        break  # Break the loop if no data received
 
-    try:
-        while True:
-            ciphertext = receive_message(connection)
-            plaintext = decrypt_message(key, ciphertext)
-            print("Received:", plaintext.decode())
+    print("Received from client:", data)
 
-            # Echo back to the client
-            send_message(connection, ciphertext)
+    # Send a response back to the client
+    response = input("Enter a message to send to the client: ")
+    client_socket.send(response.encode())
 
-    finally:
-        connection.close()
-        server_socket.close()
-
-if __name__ == "__main__":
-    main()
+# Close the connection
+client_socket.close()
+server_socket.close()
