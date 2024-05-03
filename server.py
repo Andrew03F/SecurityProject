@@ -1,28 +1,24 @@
 import socket
 
-# Create a socket object
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def main():
+    HOST = '127.0.0.1'
+    PORT = 8080
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((HOST, PORT))
+    server_socket.listen(1)
+    print("Server listening on port", PORT)
+    conn, addr = server_socket.accept()
+    print('Connected to', addr)
+    
+    while True:
+        data = conn.recv(1024)
+        if not data:
+            break
+        print("Received message:", data.decode())
+        reply = input("Enter your reply: ")
+        conn.sendall(reply.encode())
+    
+    conn.close()
 
-# Get the local machine name
-host = socket.gethostname()
-port = 12345  # Port to listen on
-
-# Bind to the port
-server_socket.bind((host, port))
-
-# Listen for incoming connections
-server_socket.listen(5)
-
-print(f"Server listening on {host}:{port}")
-
-while True:
-    # Wait for a connection
-    client_socket, addr = server_socket.accept()
-
-    print(f"Connection from {addr} has been established.")
-
-    # Send some data to the client
-    client_socket.send("Thank you for connecting".encode())
-
-    # Close the connection with the client
-    client_socket.close()
+if __name__ == "__main__":
+    main()
