@@ -5,6 +5,9 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
+import threading
+import tkinter as tk
+from tkinter import scrolledtext
 
 # Function to derive key from password using PBKDF2
 def derive_key(password, salt):
@@ -38,33 +41,70 @@ def decrypt(ciphertext, key):
     plaintext = unpadder.update(padded_data) + unpadder.finalize()
     return plaintext
 
-def main():
-    HOST = '10.204.167.105'
-    PORT = 8080
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(1)
-    print("Server listening on port", PORT)
-    conn, addr = server_socket.accept()
-    print('Connected to', addr)
-    
-    salt = os.urandom(16)
-    conn.sendall(salt)  # Send salt to client
-    
-    password = input("Enter password for encryption/decryption: ").encode()
-    key = derive_key(password, salt)
-    
+# Function to handle incoming messages
+def handle_messages(conn, key):
     while True:
         data = conn.recv(1024)
         if not data:
             break
         decrypted_data = decrypt(data, key)
-        print("Received message:", decrypted_data.decode())
-        reply = input("Enter your reply: ")
-        encrypted_reply = encrypt(reply.encode(), key)
-        conn.sendall(encrypted_reply)
-    
-    conn.close()
+        chat_box.insert(tk.END, f"Received: {decrypted_data.decode()}\n")
 
-if __name__ == "__main__":
-    main()
+# Function to start the server
+def start_server():
+    global server_socket
+    HOST = '127.0.0.1'
+    PORT = 8080
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((HOST, PORT))
+    server_socket.listen(1)
+    chat_box.insert(tk.END, f"Server listening on port {PORT}\n")
+    conn, addr = server_socket.accept()
+    chat_box.insert(tk.END, f"Connected to {addr}\n")
+
+    salt = os.urandom(16)
+    conn.sendall(salt)  # Send salt to client
+
+    password = password_entry.get().encode()
+    key = derive_key(password, salt)
+
+    threading.Thread(target=handle_messages, args=(conn, key), daemon=True).start()
+
+# Function to send a message
+def send_message():
+    message = message_entry.get()
+    encrypted_message = encrypt(message.encode(), key)
+    conn.sendall(encrypted_message)
+    chat_box.insert(tk.END, f"Sent: {message}\n")
+    message_entry.delete(0, tk.END)
+
+# Create GUI
+root = tk.Tk()
+root.title("Server")
+root.geometry("400x300")
+
+chat_label = tk.Label(root, text="Chat:")
+chat_label.pack()
+
+chat_box = scrolledtext.ScrolledText(root, width=40, height=10)
+chat_box.pack()
+
+password_label = tk.Label(root, text="Enter password:")
+password_label.pack()
+
+password_entry = tk.Entry(root, show="*")
+password_entry.pack()
+
+start_button = tk.Button(root, text="Start Server", command=start_server)
+start_button.pack()
+
+message_label = tk.Label(root, text="Enter message:")
+message_label.pack()
+
+message_entry = tk.Entry(root)
+message_entry.pack()
+
+send_button = tk.Button(root, text="Send", command=send_message)
+send_button.pack()
+
+root.mainloop()
